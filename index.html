@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>전국 급식 메뉴</title>
+    <meta
+      name="description"
+      content="전국 학교 급식 메뉴를 학교/날짜별로 빠르게 조회하는 반응형 웹앱"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div class="brand">
+          <div class="brand__title">전국 급식 메뉴</div>
+          <div class="brand__subtitle">학교 검색 · 날짜별 급식 조회</div>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="card">
+          <h2 class="card__title">학교 선택</h2>
+          <p class="card__hint">
+            학교명을 검색하고 목록에서 선택하세요. (예: “서울고”, “OO초”, “OO중”)
+          </p>
+
+          <div class="grid grid--school">
+            <label class="field">
+              <span class="field__label">학교 검색</span>
+              <div class="field__control field__control--row">
+                <input
+                  id="schoolQuery"
+                  class="input"
+                  type="search"
+                  placeholder="학교명 입력"
+                  autocomplete="off"
+                />
+                <button id="searchBtn" class="btn" type="button">검색</button>
+              </div>
+              <div id="schoolError" class="field__error" aria-live="polite"></div>
+            </label>
+
+            <label class="field">
+              <span class="field__label">검색 결과</span>
+              <select id="schoolSelect" class="select" disabled>
+                <option value="">학교를 검색해 주세요</option>
+              </select>
+              <div class="field__help" id="schoolSelectedMeta"></div>
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="card__title">날짜 선택</h2>
+          <div class="grid grid--date">
+            <label class="field">
+              <span class="field__label">조회 날짜</span>
+              <div class="field__control field__control--row field__control--date">
+                <input id="dateInput" class="input input--date" type="date" />
+                <button
+                  id="datePickerBtn"
+                  class="btn btn--icon"
+                  type="button"
+                  aria-label="달력 열기"
+                >
+                  📅
+                </button>
+              </div>
+              <div class="field__help">
+                선택한 학교 기준으로 해당 날짜 급식을 조회합니다.
+              </div>
+            </label>
+
+            <div class="actions">
+              <button id="prevDayBtn" class="btn btn--ghost" type="button">
+                전날
+              </button>
+              <button id="todayBtn" class="btn btn--ghost" type="button">
+                오늘
+              </button>
+              <button id="nextDayBtn" class="btn btn--ghost" type="button">
+                다음날
+              </button>
+              <button id="fetchMealBtn" class="btn btn--primary" type="button">
+                급식 조회
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card__head">
+            <h2 class="card__title">급식 정보</h2>
+            <div id="status" class="status" aria-live="polite"></div>
+          </div>
+
+          <div id="mealEmpty" class="empty">
+            학교와 날짜를 선택한 뒤 “급식 조회”를 눌러주세요.
+          </div>
+
+          <div id="mealResult" class="meal" hidden>
+            <div class="meal__meta">
+              <div class="meal__school" id="mealSchool"></div>
+              <div class="meal__date" id="mealDate"></div>
+            </div>
+
+            <div class="meal__grid">
+              <div class="meal__block">
+                <div class="meal__label">메뉴</div>
+                <ul id="mealMenu" class="meal__menu"></ul>
+              </div>
+
+              <div class="meal__block">
+                <div class="meal__label">영양/칼로리</div>
+                <div id="mealNutrition" class="meal__text"></div>
+              </div>
+
+              <div class="meal__block">
+                <div class="meal__label">원산지</div>
+                <div id="mealOrigin" class="meal__text"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div class="footer__text">
+          데이터 제공: NEIS(교육행정정보시스템) Open API
+        </div>
+      </footer>
+    </div>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
