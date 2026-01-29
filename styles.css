@@ -2,7 +2,7 @@
   --bg: #f2f6fb;
   --panel: #ffffff;
   --panel2: #f5f8ff;
-  --text: #0f172a;
+  --text: #4466b3;
   --muted: #64748b;
   --line: rgba(148, 163, 184, 0.45);
   --primary: #2563eb;
@@ -60,7 +60,7 @@ body {
 .brand__title {
   font-weight: 800;
   letter-spacing: -0.02em;
-  font-size: 20px;
+  font-size: 30px;
 }
 
 .brand__subtitle {
