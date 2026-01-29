@@ -37,6 +37,7 @@ const els = {
   mealMenu: $("mealMenu"),
   mealNutrition: $("mealNutrition"),
   mealOrigin: $("mealOrigin"),
+  rangeMode: $("rangeMode"),
 };
 
 function setStatus(msg) {
@@ -61,6 +62,12 @@ function todayStr() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function normalizeBreaks(text) {
+  const raw = String(text || "");
+  if (!raw) return "";
+  return raw.replaceAll("<br/>", "\n").replaceAll("<br />", "\n");
 }
 
 function addDays(dateStr, deltaDays) {
@@ -201,9 +208,7 @@ function normalizeMenuItems(ddishNm) {
   const raw = String(ddishNm || "");
   if (!raw) return [];
 
-  return raw
-    .replaceAll("<br/>", "\n")
-    .replaceAll("<br />", "\n")
+  return normalizeBreaks(raw)
     .split("\n")
     .map((s) => s.trim())
     .filter(Boolean)
@@ -222,9 +227,9 @@ function clearMeal() {
 
 function renderMeal({ school, ymd, row }) {
   const menu = normalizeMenuItems(row?.DDISH_NM);
-  const cal = row?.CAL_INFO ? String(row.CAL_INFO).trim() : "";
-  const ntr = row?.NTR_INFO ? String(row.NTR_INFO).trim() : "";
-  const origin = row?.ORPLC_INFO ? String(row.ORPLC_INFO).trim() : "";
+  const cal = row?.CAL_INFO ? normalizeBreaks(row.CAL_INFO).trim() : "";
+  const ntr = row?.NTR_INFO ? normalizeBreaks(row.NTR_INFO).trim() : "";
+  const origin = row?.ORPLC_INFO ? normalizeBreaks(row.ORPLC_INFO).trim() : "";
 
   els.mealSchool.textContent = school?.SCHUL_NM ?? "";
   els.mealDate.textContent = ymdToHuman(ymd);
@@ -290,6 +295,101 @@ async function fetchMeal({ officeCode, schoolCode, ymd }) {
   return rows[0];
 }
 
+async function fetchMealRange({ officeCode, schoolCode, fromYmd, toYmd }) {
+  const data = await fetchNeis("mealServiceDietInfo", {
+    ATPT_OFCDC_SC_CODE: officeCode,
+    SD_SCHUL_CODE: schoolCode,
+    MLSV_FROM_YMD: fromYmd,
+    MLSV_TO_YMD: toYmd,
+  });
+
+  const { code, message } = getNeisResultCode(data, "mealServiceDietInfo");
+  if (code && code !== "INFO-000") {
+    if (code === "INFO-200") return [];
+    throw new Error(message || `급식 조회 오류(${code})`);
+  }
+
+  const rows = getNeisRows(data, "mealServiceDietInfo");
+  return Array.isArray(rows) ? rows : [];
+}
+
+function getRangeMode() {
+  return els.rangeMode?.value || "day";
+}
+
+function getWeekRange(dateStr) {
+  const base = new Date(dateStr);
+  if (Number.isNaN(base.getTime())) return null;
+  const day = base.getDay(); // 0: Sun, 1: Mon, ...
+  const diffToMonday = (day + 6) % 7;
+  const start = new Date(base);
+  start.setDate(base.getDate() - diffToMonday);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const pad = (n) => String(n).padStart(2, "0");
+  const from = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+  const to = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+  return { from, to };
+}
+
+function getMonthRange(dateStr) {
+  const base = new Date(dateStr);
+  if (Number.isNaN(base.getTime())) return null;
+  const year = base.getFullYear();
+  const month = base.getMonth();
+  const pad = (n) => String(n).padStart(2, "0");
+  const start = `${year}-${pad(month + 1)}-01`;
+  const endDate = new Date(year, month + 1, 0);
+  const end = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}`;
+  return { from: start, to: end };
+}
+
+function renderMealRange({ school, fromYmd, toYmd, rows, mode }) {
+  els.mealSchool.textContent = school?.SCHUL_NM ?? "";
+  const fromHuman = ymdToHuman(fromYmd);
+  const toHuman = ymdToHuman(toYmd);
+  const label =
+    mode === "week" ? "주별 급식" : mode === "month" ? "월별 급식" : "기간 급식";
+  els.mealDate.textContent = `${label} · ${fromHuman} ~ ${toHuman}`;
+
+  els.mealMenu.innerHTML = "";
+  if (!rows.length) {
+    const li = document.createElement("li");
+    li.textContent = "선택한 기간에 등록된 급식 정보가 없습니다.";
+    els.mealMenu.appendChild(li);
+  } else {
+    const sorted = [...rows].sort((a, b) => {
+      const d1 = a.MLSV_YMD || "";
+      const d2 = b.MLSV_YMD || "";
+      if (d1 === d2) {
+        const m1 = a.MMEAL_SC_CODE || "";
+        const m2 = b.MMEAL_SC_CODE || "";
+        return m1.localeCompare(m2);
+      }
+      return d1.localeCompare(d2);
+    });
+
+    for (const r of sorted) {
+      const date = r.MLSV_YMD || "";
+      const mealType = r.MMEAL_SC_NM || "";
+      const items = normalizeMenuItems(r.DDISH_NM);
+      const humanDate = ymdToHuman(date);
+      const li = document.createElement("li");
+      const title = `${humanDate}${mealType ? ` (${mealType})` : ""}`;
+      const menuText = items.length ? items.join(", ") : "등록된 메뉴 정보가 없습니다.";
+      li.textContent = `${title}: ${menuText}`;
+      els.mealMenu.appendChild(li);
+    }
+  }
+
+  els.mealNutrition.textContent =
+    "주별/월별 조회에서는 날짜별 메뉴만 요약해서 보여줍니다.";
+  els.mealOrigin.textContent = "";
+
+  els.mealEmpty.hidden = true;
+  els.mealResult.hidden = false;
+}
+
 function syncFetchButtonState() {
   const school = getSelectedSchool();
   const date = els.dateInput.value;
@@ -335,6 +435,7 @@ async function handleFetchMeal() {
   const school = getSelectedSchool();
   const dateStr = els.dateInput.value;
   const ymd = yyyyMmDdToYmd(dateStr);
+  const mode = getRangeMode();
 
   if (!school) {
     setStatus("학교를 먼저 선택해 주세요.");
@@ -350,20 +451,47 @@ async function handleFetchMeal() {
     els.fetchMealBtn.disabled = true;
     clearMeal();
 
-    const row = await fetchMeal({
-      officeCode: school.ATPT_OFCDC_SC_CODE,
-      schoolCode: school.SD_SCHUL_CODE,
-      ymd,
-    });
+    if (mode === "day") {
+      const row = await fetchMeal({
+        officeCode: school.ATPT_OFCDC_SC_CODE,
+        schoolCode: school.SD_SCHUL_CODE,
+        ymd,
+      });
 
-    if (!row) {
-      setStatus("해당 날짜에 등록된 급식 정보가 없습니다.");
-      return;
+      if (!row) {
+        setStatus("해당 날짜에 등록된 급식 정보가 없습니다.");
+        return;
+      }
+
+      saveSelectedSchool(school);
+      renderMeal({ school, ymd, row });
+      setStatus("조회 완료");
+    } else {
+      const range =
+        mode === "week" ? getWeekRange(dateStr) : mode === "month" ? getMonthRange(dateStr) : null;
+      if (!range) {
+        setStatus("유효한 날짜가 아닙니다.");
+        return;
+      }
+      const fromYmd = yyyyMmDdToYmd(range.from);
+      const toYmd = yyyyMmDdToYmd(range.to);
+
+      const rows = await fetchMealRange({
+        officeCode: school.ATPT_OFCDC_SC_CODE,
+        schoolCode: school.SD_SCHUL_CODE,
+        fromYmd,
+        toYmd,
+      });
+
+      if (!rows.length) {
+        setStatus("선택한 기간에 등록된 급식 정보가 없습니다.");
+        return;
+      }
+
+      saveSelectedSchool(school);
+      renderMealRange({ school, fromYmd, toYmd, rows, mode });
+      setStatus("조회 완료");
     }
-
-    saveSelectedSchool(school);
-    renderMeal({ school, ymd, row });
-    setStatus("조회 완료");
   } catch (e) {
     setStatus(e?.message || "급식 조회 중 오류가 발생했습니다.");
   } finally {

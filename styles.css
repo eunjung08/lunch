@@ -120,6 +120,10 @@ body {
   grid-template-columns: 1fr;
 }
 
+.grid--date .field + .field {
+  margin-top: 4px;
+}
+
 .field {
   display: grid;
   gap: 6px;
